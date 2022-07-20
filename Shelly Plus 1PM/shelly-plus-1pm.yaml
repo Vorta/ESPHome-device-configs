@@ -1,0 +1,199 @@
+substitutions:
+  esp_device_name: "shelly-plus-1pm" # Change to match the name of the YAML file
+  device_type: "Shelly Plus 1PM"     # Don't change
+
+  device_name: "Your Device Name"    # Set your device name
+  device_id: "your_device_id"        # Set your device ID (will be used in Home Assistant)
+  device_ip: 192.168.0.13            # Modify
+  
+  # Calibration
+  current_res: "0.00095"             # Higher value = lower watt
+  voltage_div: "2050"                # Lower value = lower voltage
+
+# Checklist:
+# Make sure you have wifi_ssid, wifi_password and ota_password secrets set
+# Make sure you scroll down to manual_ip and set correct gateway and subnet for your network
+# Make sure you have set a correct static IP for your device above
+
+esphome:
+  name: "${esp_device_name}"
+  platformio_options:
+    board_build.f_cpu: 160000000L
+  comment: "${device_type}"
+
+esp32:
+  board: esp32doit-devkit-v1
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_FREERTOS_UNICORE: y
+      CONFIG_ESP32_DEFAULT_CPU_FREQ_160: y
+      CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ: "160"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Fallback hotspot
+  ap:
+    ssid: "ESPHome (${device_name})"
+    password: !secret wifi_password
+    
+  manual_ip:
+    static_ip: ${device_ip}
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+
+time:
+  - platform: homeassistant
+
+output:
+  - platform: gpio
+    id: "relay_output"
+    pin: GPIO26
+
+switch:
+  - platform: output
+    name: "${device_name} Relay"
+    id: "${device_id}_relay"
+    output: "relay_output"
+    icon: "mdi:power"
+    
+button:
+  - platform: restart
+    name: "${device_name} Restart"
+    id: "${device_id}_restart_button"
+
+binary_sensor:
+  - platform: gpio
+    name: "${device_name} Switch"
+    id: "${device_id}_switch"
+    device_class: power
+    pin: GPIO4
+    on_press:
+      then:
+        - switch.toggle: "${device_id}_relay"
+    filters:
+      - delayed_on_off: 50ms
+    icon: mdi:light-switch
+  - platform: gpio
+    name: "${device_name} Button"
+    id: "${device_id}_button"
+    device_class: power
+    pin:
+      number: GPIO25
+      inverted: yes
+      mode:
+        input: true
+        pullup: true
+    on_press:
+      then:
+        - switch.toggle: "${device_id}_relay"
+    filters:
+      - delayed_on_off: 5ms
+    icon: mdi:gesture-tap-button
+
+sensor:
+  - platform: ntc
+    sensor: "${device_id}_temp_resistance_reading"
+    name: "${device_name} Device Temperature"
+    id: "${device_id}_device_temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    entity_category: diagnostic
+    calibration:
+      b_constant: 3350
+      reference_resistance: 10kOhm
+      reference_temperature: 298.15K
+    on_value_range:
+      - above: "80.0"
+        then:
+          - switch.turn_off: "${device_id}_relay"
+  - platform: resistance
+    id: "${device_id}_temp_resistance_reading"
+    sensor: "${device_id}_temp_analog_reading"
+    configuration: DOWNSTREAM
+    resistor: 6kOhm
+  - platform: adc
+    id: "${device_id}_temp_analog_reading"
+    pin: GPIO32
+    attenuation: 11db
+
+  - platform: adc
+    name: "${device_name} Relay Supply Voltage"
+    id: "${device_id}_relay_supply_voltage"
+    device_class: voltage
+    state_class: measurement
+    entity_category: diagnostic
+    pin: GPIO33
+    attenuation: 11db
+    filters:
+      - multiply: 8
+
+  - platform: hlw8012
+    model: BL0937
+    sel_pin:
+      number: GPIO23
+      inverted: true
+    cf_pin: GPIO5
+    cf1_pin: GPIO18
+    current_resistor: ${current_res}
+    voltage_divider: ${voltage_div}
+    current:
+      name: "${device_name} Current"
+      id: "${device_id}_current"
+      accuracy_decimals: 3
+      unit_of_measurement: A
+      device_class: current
+      state_class: measurement
+    voltage:
+      name: "${device_name} Voltage"
+      id: "${device_id}_voltage"
+      accuracy_decimals: 1
+      unit_of_measurement: V
+      device_class: voltage
+      state_class: measurement
+    power:
+      name: "${device_name} Power"
+      id: "${device_id}_power"
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      accuracy_decimals: 1
+    energy:
+      name: "${device_name} Energy"
+      id: "${device_id}_energy"
+      device_class: energy
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: 0.001
+      unit_of_measurement: kWh
+
+    change_mode_every: 2
+    update_interval: 10s
+  - platform: total_daily_energy
+    name: "${device_name} Daily Energy"
+    id: "${device_id}_daily_energy"
+    power_id: "${device_id}_power"
+    device_class: energy
+    state_class: total_increasing
+    filters:
+        - multiply: 0.001
+    unit_of_measurement: kWh
+
+status_led:
+  pin:
+    number: GPIO0
+    inverted: true

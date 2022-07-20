@@ -1,0 +1,156 @@
+substitutions:
+  esp_device_name: bw-ar01
+  device_type: "BlitzWolf BW-AR01" # Don't change
+
+  device_name: "Your Device Name"  # Set your device name
+  device_id: "your_device_id"      # Set your device ID (will be used in Home Assistant)
+  device_ip: 192.168.0.13          # Modify
+
+  ch2o_formaldehyde: ${device_id}_ch2o_formaldehyde
+  temperature: ${device_id}_temperature
+  humidity: ${device_id}_humidity
+  voc: ${device_id}_voc
+  carbon_dioxide: ${device_id}_carbon_dioxide
+
+# Checklist:
+# Make sure you have wifi_ssid, wifi_password and ota_password secrets set
+# Make sure you scroll down to manual_ip and set correct gateway and subnet for your network
+# Make sure you have set a correct static IP for your device above
+
+esphome:
+  name: ${esp_device_name}
+  
+  on_boot:
+    - sensor.template.publish:
+        id: ${ch2o_formaldehyde}_skips
+        state: 0
+    - sensor.template.publish:
+        id: ${temperature}_skips
+        state: 0
+    - sensor.template.publish:
+        id: ${humidity}_skips
+        state: 0
+    - sensor.template.publish:
+        id: ${voc}_skips
+        state: 0
+    - sensor.template.publish:
+        id: ${carbon_dioxide}_skips
+        state: 0
+
+esp8266:
+  board: esp01_1m
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "ESPHome (${device_name})"
+    password: !secret wifi_password
+    
+  manual_ip:
+    static_ip: ${device_ip}
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+
+# Enable logging
+logger:
+  baud_rate: 0
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+
+time:
+  - platform: homeassistant
+
+captive_portal:
+
+uart:
+  rx_pin: GPIO3
+  tx_pin: GPIO1
+  baud_rate: 9600
+
+# Register the Tuya MCU connection
+tuya:
+
+# Register sensors for the datapoints
+sensor:
+  - platform: tuya
+    name: ${ch2o_formaldehyde}
+    sensor_datapoint: 21
+    accuracy_decimals: 2
+    filters:
+      - lambda: auto s = id(${ch2o_formaldehyde}_skips); if(s->state >= 6) { return x; } else { s->publish_state(s->state+1); return {}; }
+      - multiply: 0.01
+    unit_of_measurement: "mg/m³"
+    icon: "mdi:chemical-weapon"
+    state_class: measurement
+    
+  - platform: tuya
+    name: ${temperature}
+    sensor_datapoint: 18
+    accuracy_decimals: 1
+    filters:
+      - lambda: auto s = id(${temperature}_skips); if(s->state >= 2) { return x; } else { s->publish_state(s->state+1); return {}; }
+      - multiply: 0.1
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer"
+    device_class: "temperature"
+    state_class: measurement
+    
+  - platform: tuya
+    name: ${humidity}
+    sensor_datapoint: 19
+    accuracy_decimals: 1
+    filters:
+      - lambda: auto s = id(${humidity}_skips); if(s->state >= 2) { return x; } else { s->publish_state(s->state+1); return {}; }
+      - multiply: 0.1
+    unit_of_measurement: "%"
+    icon: "mdi:water-percent"
+    device_class: "humidity"
+    state_class: measurement
+    
+  - platform: tuya
+    name: ${voc}
+    sensor_datapoint: 2
+    accuracy_decimals: 1
+    filters:
+      - lambda: auto s = id(${voc}_skips); if(s->state >= 6) { return x; } else { s->publish_state(s->state+1); return {}; }
+      - multiply: 0.1
+    unit_of_measurement: "ppm"
+    device_class: "volatile_organic_compounds"
+    state_class: measurement
+    
+  - platform: tuya
+    name: ${carbon_dioxide}
+    sensor_datapoint: 22
+    accuracy_decimals: 0
+    filters:
+      - lambda: auto s = id(${carbon_dioxide}_skips); if(s->state >= 6) { return x; } else { s->publish_state(s->state+1); return {}; }
+    unit_of_measurement: "ppm"
+    device_class: "carbon_dioxide"
+    state_class: measurement
+  - platform: template
+    id: ${ch2o_formaldehyde}_skips
+    internal: true
+    accuracy_decimals: 0
+  - platform: template
+    id: ${temperature}_skips
+    internal: true
+    accuracy_decimals: 0
+  - platform: template
+    id: ${humidity}_skips
+    internal: true
+    accuracy_decimals: 0
+  - platform: template
+    id: ${voc}_skips
+    internal: true
+    accuracy_decimals: 0
+  - platform: template
+    id: ${carbon_dioxide}_skips
+    internal: true
+    accuracy_decimals: 0

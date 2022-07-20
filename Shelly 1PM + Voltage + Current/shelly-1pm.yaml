@@ -1,0 +1,164 @@
+substitutions:
+  esp_device_name: "shelly-1pm"      # Change to match the name of the YAML file
+  device_type: "Shelly 1PM"          # Don't change
+
+  device_name: "Your Device Name"    # Set your device name
+  device_id: "your_device_id"        # Set your device ID (will be used in Home Assistant)
+  device_ip: 192.168.0.13            # Modify
+  
+  # Calibration
+  max_temp: "80.0"                   # Will shut down when this temp is reached
+
+# Checklist:
+# Make sure you have wifi_ssid, wifi_password and ota_password secrets set
+# Make sure you scroll down to manual_ip and set correct gateway and subnet for your network
+# Make sure you have set a correct static IP for your device above
+
+esphome:
+  name: "${esp_device_name}"
+  platform: ESP8266
+  board: esp01_1m
+  comment: "${device_type}"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  ap:
+    ssid: "ESPHome (${device_name})"
+    password: !secret wifi_password
+    
+  manual_ip:
+    static_ip: ${device_ip}
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: !secret ota_password
+
+time:
+  - platform: homeassistant
+  
+captive_portal:
+
+switch:
+  - platform: gpio
+    name: "${device_name} Switch"
+    id: "${device_id}_switch"
+    pin: GPIO15
+    restore_mode: RESTORE_DEFAULT_OFF
+    
+sensor:
+  - platform: wifi_signal
+    name: "${device_name} Signal"
+    id: "${device_id}_signal"
+    device_class: signal_strength
+    update_interval: 60s
+    entity_category: diagnostic
+    
+  - platform: hlw8012
+    cf_pin: GPIO05
+    cf1_pin: GPIO14
+    sel_pin: GPIO12
+    current_resistor: ${current_res}
+    voltage_divider: ${voltage_div}
+    current:
+      name: "${device_name} Current"
+      id: "${device_id}_current"
+      accuracy_decimals: 3
+      unit_of_measurement: A
+      device_class: current
+      state_class: measurement
+    voltage:
+      name: "${device_name} Voltage"
+      id: "${device_id}_voltage"
+      accuracy_decimals: 1
+      unit_of_measurement: V
+      device_class: voltage
+      state_class: measurement
+    power:
+      name: "${device_name} Power"
+      id: "${device_id}_power"
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      accuracy_decimals: 1
+      filters:
+      - calibrate_linear:
+          - 0.0 -> 1.0
+          - 110.33186 -> 20.62
+          - 131.01909 -> 24.32
+          - 341.33920 -> 62.08
+          - 5561.41553 -> 1000.0
+          - 2975.51221 -> 535.7
+          - 9612.66309 -> 1720.0
+          - 14891.35352 -> 2679.0
+      # Make everything below 2W appear as just 0W.
+      - lambda: if (x < 2) return 0; else return x;
+    energy:
+      name: "${device_name} Energy"
+      id: "${device_id}_energy"
+      device_class: energy
+      state_class: total_increasing
+      accuracy_decimals: 3
+      filters:
+        - multiply: 0.001
+      unit_of_measurement: kWh
+    update_interval: 10s
+
+  - platform: ntc
+    sensor: "${device_id}_temp_resistance_reading"
+    name: "${device_name} Device Temperature"
+    id: "${device_id}_device_temperature"
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+    device_class: temperature
+    state_class: measurement
+    entity_category: diagnostic
+    calibration:
+      b_constant: 3350
+      reference_resistance: 10kOhm
+      reference_temperature: 298.15K
+    on_value_range:
+      - above: ${max_temp}
+        then:
+          - homeassistant.event:
+              event: esphome.overheat
+              data:
+                title: "${devicename} has overheated."
+
+  - platform: resistance
+    id: "${device_id}_temp_resistance_reading"
+    sensor: "${device_id}_temp_analog_reading"
+    configuration: DOWNSTREAM
+    resistor: 32kOhm
+
+  - platform: adc
+    id: "${device_id}_temp_analog_reading"
+    pin: A0
+
+output:
+  - platform: esp8266_pwm
+    id: state_led
+    pin:
+      number: GPIO00
+      inverted: true
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO4
+    filters:
+      - delayed_on_off: 50ms # Prevents debouncing
+    name: "Switch ${device_name}"
+    on_press:
+      then:
+        - switch.toggle: "${device_id}_switch"
+    internal: true
+    id: switchid
