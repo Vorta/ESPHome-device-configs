@@ -19,6 +19,7 @@ substitutions:
 
 esphome:
   name: ${esp_device_name}
+  comment: "${device_type}"
   
   on_boot:
     - sensor.template.publish:
@@ -80,7 +81,8 @@ tuya:
 # Register sensors for the datapoints
 sensor:
   - platform: tuya
-    name: ${ch2o_formaldehyde}
+    name: "${device_name} CH₂O Formaldehyde"
+    id: ${ch2o_formaldehyde}
     sensor_datapoint: 21
     accuracy_decimals: 2
     filters:
@@ -91,7 +93,8 @@ sensor:
     state_class: measurement
     
   - platform: tuya
-    name: ${temperature}
+    name: "${device_name} Temperature"
+    id: ${temperature}
     sensor_datapoint: 18
     accuracy_decimals: 1
     filters:
@@ -103,7 +106,8 @@ sensor:
     state_class: measurement
     
   - platform: tuya
-    name: ${humidity}
+    name: "${device_name} Humidity"
+    id: ${humidity}
     sensor_datapoint: 19
     accuracy_decimals: 1
     filters:
@@ -115,7 +119,8 @@ sensor:
     state_class: measurement
     
   - platform: tuya
-    name: ${voc}
+    name: "${device_name} VOC"
+    id: ${voc}
     sensor_datapoint: 2
     accuracy_decimals: 1
     filters:
@@ -126,7 +131,8 @@ sensor:
     state_class: measurement
     
   - platform: tuya
-    name: ${carbon_dioxide}
+    name: "${device_name} CO₂"
+    id: ${carbon_dioxide}
     sensor_datapoint: 22
     accuracy_decimals: 0
     filters:
