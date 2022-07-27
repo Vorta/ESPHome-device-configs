@@ -65,8 +65,9 @@ switch:
   - platform: output
     name: "${device_name} Relay"
     id: "${device_id}_relay"
-    output: "relay_output"
     icon: "mdi:power"
+    output: "relay_output"
+    restore_mode: RESTORE_DEFAULT_OFF
     
 button:
   - platform: restart

@@ -51,6 +51,7 @@ switch:
   - platform: gpio
     name: "${device_name} Switch"
     id: "${device_id}_switch"
+    icon: "mdi:power"
     pin: GPIO15
     restore_mode: RESTORE_DEFAULT_OFF
     
@@ -158,4 +159,3 @@ binary_sensor:
       then:
         - switch.toggle: "${device_id}_switch"
     internal: true
-
