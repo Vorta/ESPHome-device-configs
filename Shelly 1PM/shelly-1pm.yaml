@@ -86,8 +86,8 @@ sensor:
       # Make everything below 2W appear as 0W.
       - lambda: if (x < 2) return 0; else return x;
     energy:
-      name: "${device_name} Energy"
-      id: "${device_id}_energy"
+      name: "${device_name} Energy Total"
+      id: "${device_id}_energy_total"
       device_class: energy
       state_class: total_increasing
       accuracy_decimals: 3
@@ -95,6 +95,17 @@ sensor:
         - multiply: 0.001
       unit_of_measurement: kWh
     update_interval: 10s
+
+  - platform: total_daily_energy
+    power_id: "${device_id}_power"
+    name: "${device_name} Energy Daily"
+    id: "${device_id}_energy_daily"
+    device_class: energy
+    state_class: total_increasing
+    accuracy_decimals: 3
+    filters:
+      - multiply: 0.001
+    unit_of_measurement: kWh
 
   - platform: ntc
     sensor: "${device_id}_temp_resistance_reading"
@@ -116,6 +127,7 @@ sensor:
               event: esphome.overheat
               data:
                 title: "${devicename} has overheated."
+          - switch.turn_off: "${device_id}_switch"
 
   - platform: resistance
     id: "${device_id}_temp_resistance_reading"
@@ -140,9 +152,10 @@ binary_sensor:
       number: GPIO4
     filters:
       - delayed_on_off: 50ms # Prevents debouncing
-    name: "Switch ${device_name}"
+    name: "${device_name} Button"
+    id: "${device_id}_button"
     on_press:
       then:
         - switch.toggle: "${device_id}_switch"
     internal: true
-    id: switchid
+
