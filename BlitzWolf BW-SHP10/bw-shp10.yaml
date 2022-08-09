@@ -137,23 +137,26 @@ sensor:
     filters:
       - multiply: 0.001
     unit_of_measurement: kWh
-    
 
 output:
   - platform: esp8266_pwm
-    id: state_led
+    id: "${device_id}_state_led"
     pin:
-      number: GPIO4
+      number: 4
       inverted: true
 
 binary_sensor:
   - platform: gpio
     pin:
-      number: GPIO13
-    filters:
-      - delayed_on_off: 50ms # small delay to prevent debouncing
+      number: 13
+      mode:
+        input: true
+        pullup: true
+    device_class: power
     name: "${device_name} Button"
     id: "${device_id}_button"
+    filters:
+      - delayed_on_off: 50ms # small delay to prevent debouncing
     on_press:
       then:
         - switch.toggle: "${device_id}_switch"
